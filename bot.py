@@ -19,9 +19,7 @@ if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
     print("❌ FEHLER: TELEGRAM_TOKEN oder TELEGRAM_CHAT_ID fehlt!")
     sys.exit(1)
 
-# Anthropic Client initialisieren
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
-
 
 # ==========================================
 # 2. Finanzdaten über yfinance abrufen
@@ -55,7 +53,6 @@ def get_market_data():
             
     return "\n".join(summary_lines)
 
-
 # ==========================================
 # 3. Markt-Update via Claude AI generieren
 # ==========================================
@@ -68,11 +65,13 @@ def generate_market_update(market_data_text):
     print("🤖 Generiere Marktupdate mit Claude...")
     prompt_content = f"Hier sind die aktuellen Marktdaten:\n\n{market_data_text}\n\nBitte erstelle daraus mein tägliches Marktupdate."
     
-    # Aktuelle, spezifische Modell-IDs (vom neusten High-End-Modell bis zum kostengünstigen Fallback)
+    # Neue Modelle der Generationen 4 und 5 laut deinem Dashboard
     models_to_try = [
-        "claude-3-7-sonnet-latest",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-haiku-20240307"
+        "claude-5-sonnet-latest",
+        "claude-5-fable-latest",
+        "claude-4-5-sonnet-latest",
+        "claude-4-sonnet-latest",
+        "claude-4-haiku-latest"
     ]
     
     for model_name in models_to_try:
@@ -91,7 +90,6 @@ def generate_market_update(market_data_text):
             print(f"⚠️ Fehler bei {model_name}: {e}")
             
     return None
-
 
 # ==========================================
 # 4. Telegram-Versand
@@ -117,7 +115,6 @@ def send_telegram_message(message_text):
             print("🎉 Telegram-Nachricht als Plain-Text zugestellt!")
     except Exception as e:
         print(f"❌ Fehler beim Senden an Telegram: {e}")
-
 
 # ==========================================
 # 5. Hauptablauf
