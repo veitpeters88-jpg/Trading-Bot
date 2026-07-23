@@ -59,7 +59,7 @@ def generate_market_update(market_data_text):
     print("🤖 Generiere Marktupdate mit Claude...")
     prompt_content = f"Hier sind die aktuellen Marktdaten:\n\n{market_data_text}\n\nBitte erstelle daraus mein tägliches Marktupdate."
     
-    # Offizielle API-Modellnamen laut Anthropic Dokumentation
+    # Offizielle Modell-Strings von Anthropic
     models_to_try = [
         "claude-3-5-sonnet-latest",
         "claude-3-5-haiku-latest"
