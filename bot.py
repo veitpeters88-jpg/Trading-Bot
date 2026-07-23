@@ -17,10 +17,12 @@ WICHTIG:
 """
 
 def generate_market_update():
+    # Wir testen die stabilste Modell-ID
+    MODEL_NAME = "claude-3-5-sonnet-20240620" 
+    
     try:
         response = client.messages.create(
-            # Verwende 'claude-3-5-sonnet-latest' (oder 'claude-3-7-sonnet-latest')
-            model="claude-3-5-sonnet-latest",
+            model=MODEL_NAME,
             max_tokens=2500,
             temperature=0.3,
             system=SYSTEM_PROMPT,
@@ -32,14 +34,28 @@ def generate_market_update():
             ]
         )
         
-        market_update_text = response.content[0].text
-        return market_update_text
+        return response.content[0].text
 
     except Exception as e:
-        print(f"❌ Fehler bei der API-Abfrage: {e}")
-        return None
+        print(f"❌ Fehler bei der API-Abfrage mit {MODEL_NAME}: {e}")
+        # Versuche Fallback auf Haiku, falls Sonnet auf dem Key nicht freigeschaltet ist:
+        try:
+            print("🔄 Versuche Fallback auf claude-3-haiku-20240307...")
+            fallback_response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=2500,
+                temperature=0.3,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": "Erstelle mir ein aktuelles, kompaktes Marktupdate für heute."}]
+            )
+            return fallback_response.content[0].text
+        except Exception as fallback_error:
+            print(f"❌ Auch Fallback fehlgeschlagen: {fallback_error}")
+            return None
 
 if __name__ == "__main__":
     update = generate_market_update()
     if update:
+        print("✅ Update erfolgreich generiert!")
         print(update)
+        # Hier rufst du deine Telegram-Sende-Funktion auf
