@@ -56,11 +56,14 @@ Gliedere den Text klar mit Aufzählungspunkten und Emojis. Gib Werte bevorzugt i
 """
 
 def generate_market_update(market_data_text):
-    print("🤖 Generiere Marktupdate mit Claude 5 Sonnet...")
+    print("🤖 Generiere Marktupdate mit Claude...")
     prompt_content = f"Hier sind die aktuellen Marktdaten:\n\n{market_data_text}\n\nBitte erstelle daraus mein tägliches Marktupdate."
     
-    # Modelle zum Testen (Sonnet 5 als Standard, Haiku 4.5 als Fallback)
-    models_to_try = ["claude-5-sonnet", "claude-4-5-haiku"]
+    # Offizielle API-Modellnamen laut Anthropic Dokumentation
+    models_to_try = [
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-haiku-latest"
+    ]
     
     for model_name in models_to_try:
         try:
