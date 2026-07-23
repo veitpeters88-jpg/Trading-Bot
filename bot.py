@@ -47,4 +47,3 @@ if __name__ == "__main__":
     if update:
         print(update)
         # Hier folgt dein Code zum Versenden/Speichern (z.B. E-Mail, Telegram, Datei)
-    
