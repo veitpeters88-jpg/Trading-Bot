@@ -1,89 +1,142 @@
 import os
+import sys
 import requests
+import yfinance as yf
 from anthropic import Anthropic
 
-# 1. Umweltvariablen aus GitHub Secrets laden
-anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-telegram_token = os.environ.get("TELEGRAM_TOKEN")
-telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+# ---------------------------------------------------------
+# 1. API-Keys & Umgebungsvariablen prüfen
+# ---------------------------------------------------------
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-# Client initialisieren
-client = Anthropic(api_key=anthropic_key)
+if not ANTHROPIC_API_KEY:
+    print("❌ FEHLER: ANTHROPIC_API_KEY ist nicht in den GitHub Secrets gesetzt!")
+    sys.exit(1)
 
-# 2. System-Prompt für das Marktupdate im echten Claude-Stil
+if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+    print("❌ FEHLER: TELEGRAM_TOKEN oder TELEGRAM_CHAT_ID fehlt in den Secrets!")
+    sys.exit(1)
+
+# Anthropic Client initialisieren
+client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# ---------------------------------------------------------
+# 2. Finanzdaten über yfinance abrufen
+# ---------------------------------------------------------
+def get_market_data():
+    print("📊 Lade aktuelle Markt- und Aktiendaten...")
+    tickers = {
+        "S&P 500": "^GSPC",
+        "Nasdaq 100": "^NDX",
+        "DAX": "^GDAXI",
+        "MSCI World": "URTH",
+        "NVIDIA": "NVDA",
+        "Bitcoin": "BTC-USD"
+    }
+    
+    summary_lines = []
+    
+    for name, ticker_symbol in tickers.items():
+        try:
+            ticker = yf.Ticker(ticker_symbol)
+            # 5 Tage Daten abfragen, um den letzten Schlusskurs und die Veränderung zu berechnen
+            hist = ticker.history(period="5d")
+            
+            if len(hist) >= 2:
+                latest_close = hist['Close'].iloc[-1]
+                prev_close = hist['Close'].iloc[-2]
+                pct_change = ((latest_close - prev_close) / prev_close) * 100
+                summary_lines.append(f"- {name}: {latest_close:.2f} USD/Punkte ({pct_change:+.2f}%)")
+            else:
+                summary_lines.append(f"- {name}: Keine ausreichenden Kurse gefunden")
+        except Exception as e:
+            summary_lines.append(f"- {name}: Fehler beim Laden ({e})")
+            
+    return "\n".join(summary_lines)
+
+# ---------------------------------------------------------
+# 3. Markt-Update via Claude AI generieren (mit Modell-Fallback)
+# ---------------------------------------------------------
 SYSTEM_PROMPT = """
-Du bist ein präziser, erfahrener Finanz-Analyst. Wenn du nach einem Marktupdate gefragt wirst, erstelle eine klare, strukturierte Übersicht im typischen Claude-Stil:
-
-1. **Markt-Überblick (Makro & Indizes):** Wichtige globale Indizes (S&P 500, Nasdaq 100, DAX, Euro Stoxx 50) mit besonderem Fokus auf den europäischen / EUR-Raum.
-2. **Tech- & Einzelwerte:** Fokus auf relevante Big-Tech-Entwicklungen (z. B. NVIDIA, Apple, Microsoft) und deren Auswirkung auf den Gesamtmarkt.
-3. **Zinsen & Inflation:** Relevante News von ECB/FED und wichtige Makrodaten.
-4. **Fazit / Kurzausblick:** Kompakte Zusammenfassung der aktuellen Marktstimmung (Bullisch, Bärisch, Konsolidierung).
-
-WICHTIG:
-- Gib Zahlen, Kurse und Preisentwicklungen bevorzugt in Euro (€) an bzw. hebe den EUR/USD-Wechselkurs hervor, wenn US-Aktien thematisiert werden.
-- Nutze übersichtliches Markdown (Fettdruck, Bullet Points, saubere Absätze), damit der Bericht schnell und gut lesbar ist.
+Du bist ein erfahrener Finanzanalyst. Deine Aufgabe ist es, aus den gelieferten Marktdaten ein prägnantes, leicht verständliches Börsen-Update auf Deutsch zu verfassen.
+Nutze Emojis, gliedere den Text klar mit Aufzählungspunkten und halte den Ton professionell, aber zugänglich.
+Achte darauf, Aktienkurse und Prozentveränderungen korrekt einzuordnen.
 """
 
-def generate_market_update():
-    """Generiert das Marktupdate über die Anthropic API."""
-    try:
-        print("🤖 Generiere Marktupdate mit Claude 3.5 Sonnet...")
-        
-        # Nutzen des exakten Modell-Identifiers
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=2500,
-            temperature=0.3,
-            system=SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": "Erstelle mir ein aktuelles, kompaktes Marktupdate für heute. Wie stehen die Märkte und worauf achten Investoren aktuell?"
-                }
-            ]
-        )
-        return response.content[0].text
-
-    except Exception as e:
-        print(f"❌ Fehler bei der Claude API-Abfrage: {e}")
-        return None
-
-def send_telegram_message(text):
-    """Sendet die Nachricht via Telegram Bot an deinen Chat."""
-    if not telegram_token or not telegram_chat_id:
-        print("⚠️ Telegram Token oder Chat ID fehlt in den Umgebungsvariablen!")
-        return
-
-    url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+def generate_market_update(market_data_text):
+    print("🤖 Generiere Marktupdate mit Anthropic Claude...")
     
+    # Liste gängiger Modell-Bezeichnungen zum automatischen Testen
+    TEST_MODELS = [
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-haiku-20241022",
+        "claude-3-haiku-20240307",
+        "claude-3-opus-20240229"
+    ]
+    
+    prompt_content = f"Hier sind die aktuellen Marktdaten:\n\n{market_data_text}\n\nBitte erstelle daraus mein tägliches Marktupdate."
+    
+    for model_name in TEST_MODELS:
+        try:
+            print(f"🔄 Teste Modell: {model_name}...")
+            response = client.messages.create(
+                model=model_name,
+                max_tokens=1000,
+                temperature=0.3,
+                system=SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": prompt_content}
+                ]
+            )
+            print(f"✅ ERFOLG mit Modell: {model_name}!")
+            return response.content[0].text
+        except Exception as e:
+            print(f"⚠️ Fehlgeschlagen mit {model_name}: {e}")
+            
+    print("❌ KEIN Modell hat funktioniert. Bitte prüfe deinen API-Key auf console.anthropic.com!")
+    return None
+
+# ---------------------------------------------------------
+# 4. Nachricht per Telegram versenden
+# ---------------------------------------------------------
+def send_telegram_message(message_text):
+    print("📲 Sende Nachricht an Telegram...")
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
-        "chat_id": telegram_chat_id,
-        "text": text,
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message_text,
         "parse_mode": "Markdown"
     }
-
+    
     try:
         response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            print("✅ Marktupdate erfolgreich per Telegram verschickt!")
+        res_data = response.json()
+        if res_data.get("ok"):
+            print("🎉 Telegram-Nachricht erfolgreich zugestellt!")
         else:
-            # Falls Telegram Sonderzeichen im Markdown ablehnt, Senden als Reintext
-            print(f"⚠️ Telegram-Markdown-Fehler (Status {response.status_code}), versuche Reintext-Versand...")
-            payload.pop("parse_mode")
-            requests.post(url, json=payload)
-            print("✅ Marktupdate erfolgreich als Reintext verschickt!")
-            
+            print(f"❌ Fehler von Telegram API: {res_data}")
     except Exception as e:
-        print(f"❌ Fehler beim Versenden der Telegram-Nachricht: {e}")
+        print(f"❌ Netzwerkfehler beim Senden an Telegram: {e}")
 
+# ---------------------------------------------------------
+# Hauptablauf
+# ---------------------------------------------------------
 if __name__ == "__main__":
-    update_text = generate_market_update()
-
+    # Step 1: Daten abfragen
+    data = get_market_data()
+    print("\n--- GELADENE DATEN ---")
+    print(data)
+    print("----------------------\n")
+    
+    # Step 2: Claude Analyse anfordern
+    update_text = generate_market_update(data)
+    
+    # Step 3: An Telegram schicken
     if update_text:
-        print("--- GENERIERTES UPDATE ---")
-        print(update_text)
-        print("---------------------------")
-        
         send_telegram_message(update_text)
     else:
-        print("❌ Es konnte kein Update generiert werden.")
+        print("❌ Abbruch: Kein Text zum Versenden vorhanden.")
