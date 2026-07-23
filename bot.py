@@ -1,35 +1,17 @@
 import os
 import requests
-import anthropic
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+token = os.getenv("TELEGRAM_TOKEN", "").strip()
+chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
-def send_telegram(text):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram Daten fehlen!")
-        return
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": TELEGRAM_CHAT_ID, "text": text}, timeout=10)
+print(f"Token Länge: {len(token)}")
+print(f"Chat ID Länge: {len(chat_id)}")
 
-def main():
-    send_telegram("🚀 NEUSTART ERFOLGREICH: GitHub-Bot läuft!")
-
-    if not ANTHROPIC_API_KEY:
-        send_telegram("❌ API Key fehlt!")
-        return
-
-    try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=100,
-            messages=[{"role": "user", "content": "Sag kurz Hallo an Veit!"}]
-        )
-        send_telegram(f"🤖 **CLAUDE ANTWORT:**\n\n{response.content[0].text}")
-    except Exception as e:
-        send_telegram(f"❌ CLAUDE FEHLER: {e}")
-
-if __name__ == "__main__":
-    main()
+if not token or not chat_id:
+    print("❌ FEHLER: Token oder Chat-ID fehlt in den Secrets!")
+else:
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    res = requests.post(url, json={"chat_id": chat_id, "text": "🚀 TEST: Telegram Verbindungsaufbau erfolgreich!"})
+    
+    print(f"Telegram HTTP Status: {res.status_code}")
+    print(f"Telegram Antwort: {res.text}")
