@@ -2,11 +2,12 @@ import os
 import requests
 from anthropic import Anthropic
 
-# 1. API-Clients & Umweltvariablen initialisieren
+# 1. Umweltvariablen aus GitHub Secrets laden
 anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
 telegram_token = os.environ.get("TELEGRAM_TOKEN")
 telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
+# Client initialisieren
 client = Anthropic(api_key=anthropic_key)
 
 # 2. System-Prompt für das Marktupdate im echten Claude-Stil
@@ -26,9 +27,11 @@ WICHTIG:
 def generate_market_update():
     """Generiert das Marktupdate über die Anthropic API."""
     try:
-        print("🤖 Generiere Marktupdate mit Claude...")
+        print("🤖 Generiere Marktupdate mit Claude 3.5 Sonnet...")
+        
+        # Nutzen des exakten Modell-Identifiers
         response = client.messages.create(
-            model="claude-3-5-sonnet-latest",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=2500,
             temperature=0.3,
             system=SYSTEM_PROMPT,
@@ -53,7 +56,6 @@ def send_telegram_message(text):
 
     url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
     
-    # Telegram unterstützt Nachrichten bis max 4096 Zeichen
     payload = {
         "chat_id": telegram_chat_id,
         "text": text,
@@ -65,17 +67,16 @@ def send_telegram_message(text):
         if response.status_code == 200:
             print("✅ Marktupdate erfolgreich per Telegram verschickt!")
         else:
-            # Falls Markdown-Parsing-Fehler auftreten, versuchen wir es unformatiert erneut
-            print(f"⚠️ Fehler beim Senden mit Markdown ({response.status_code}), versuche Reintext...")
+            # Falls Telegram Sonderzeichen im Markdown ablehnt, Senden als Reintext
+            print(f"⚠️ Telegram-Markdown-Fehler (Status {response.status_code}), versuche Reintext-Versand...")
             payload.pop("parse_mode")
             requests.post(url, json=payload)
-            print("✅ Marktupdate als Reintext verschickt!")
+            print("✅ Marktupdate erfolgreich als Reintext verschickt!")
             
     except Exception as e:
         print(f"❌ Fehler beim Versenden der Telegram-Nachricht: {e}")
 
 if __name__ == "__main__":
-    # Update generieren
     update_text = generate_market_update()
 
     if update_text:
@@ -83,7 +84,6 @@ if __name__ == "__main__":
         print(update_text)
         print("---------------------------")
         
-        # An Telegram senden
         send_telegram_message(update_text)
     else:
         print("❌ Es konnte kein Update generiert werden.")
