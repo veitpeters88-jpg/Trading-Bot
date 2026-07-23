@@ -4,7 +4,9 @@ import requests
 import yfinance as yf
 from anthropic import Anthropic
 
-# 1. API-Keys & Umgebungsvariablen
+# ==========================================
+# 1. API-Keys & Umgebungsvariablen prüfen
+# ==========================================
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -17,9 +19,13 @@ if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
     print("❌ FEHLER: TELEGRAM_TOKEN oder TELEGRAM_CHAT_ID fehlt!")
     sys.exit(1)
 
+# Anthropic Client initialisieren
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
+
+# ==========================================
 # 2. Finanzdaten über yfinance abrufen
+# ==========================================
 def get_market_data():
     print("📊 Lade aktuelle Markt- und Aktiendaten...")
     tickers = {
@@ -49,7 +55,10 @@ def get_market_data():
             
     return "\n".join(summary_lines)
 
+
+# ==========================================
 # 3. Markt-Update via Claude AI generieren
+# ==========================================
 SYSTEM_PROMPT = """
 Du bist ein erfahrener Finanzanalyst. Deine Aufgabe ist es, aus den gelieferten Marktdaten ein prägnantes, leicht verständliches Börsen-Update auf Deutsch zu verfassen.
 Gliedere den Text klar mit Aufzählungspunkten und Emojis. Gib Werte bevorzugt in Euro an bzw. ordne Währungseffekte bei US-Titeln sauber ein.
@@ -59,10 +68,11 @@ def generate_market_update(market_data_text):
     print("🤖 Generiere Marktupdate mit Claude...")
     prompt_content = f"Hier sind die aktuellen Marktdaten:\n\n{market_data_text}\n\nBitte erstelle daraus mein tägliches Marktupdate."
     
-    # Offizielle Modell-Strings von Anthropic
+    # Aktuelle, spezifische Modell-IDs (vom neusten High-End-Modell bis zum kostengünstigen Fallback)
     models_to_try = [
-        "claude-3-5-sonnet-latest",
-        "claude-3-5-haiku-latest"
+        "claude-3-7-sonnet-latest",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-haiku-20240307"
     ]
     
     for model_name in models_to_try:
@@ -82,7 +92,10 @@ def generate_market_update(market_data_text):
             
     return None
 
+
+# ==========================================
 # 4. Telegram-Versand
+# ==========================================
 def send_telegram_message(message_text):
     print("📲 Sende Nachricht an Telegram...")
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -105,6 +118,10 @@ def send_telegram_message(message_text):
     except Exception as e:
         print(f"❌ Fehler beim Senden an Telegram: {e}")
 
+
+# ==========================================
+# 5. Hauptablauf
+# ==========================================
 if __name__ == "__main__":
     data = get_market_data()
     update_text = generate_market_update(data)
