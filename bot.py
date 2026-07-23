@@ -26,7 +26,7 @@ def send_telegram_message(text):
 def main():
     print("--- TRADING BOT START ---")
     
-    # 2. Aktiendaten abrufen (Beispiel: Big Tech & Markt-Indizes)
+    # 2. Aktiendaten abrufen
     tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN"]
     market_data = []
 
@@ -46,44 +46,51 @@ def main():
     data_summary = "\n".join(market_data)
     print("Daten geladen:\n", data_summary)
 
-    # 3. Analyse durch Claude (Anthropic) anfordern
+    # 3. Prüfen ob Key vorhanden
     if not ANTHROPIC_API_KEY:
-        print("❌ ANTHROPIC_API_KEY fehlt!")
-        send_telegram_message(f"📊 *Markt-Update (Ohne KI)*:\n\n{data_summary}")
+        print("❌ FEHLER: ANTHROPIC_API_KEY ist in GitHub Secrets nicht gesetzt!")
+        send_telegram_message(f"📊 *Markt-Update (Key fehlt)*:\n\n{data_summary}")
         return
 
     print("Sende Daten an Claude für KI-Analyse...")
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     
+    # Ausführlicher Prompt für mehr Tiefgang
     prompt = f"""
-    Du bist ein erfahrener Trading-Assistent. Hier sind die aktuellen Marktdaten für ausgewählte Tech-Aktien:
+    Du bist 'Warren Buffet KI', ein hochqualifizierter Trading- und Marktanalyst.
+    Hier sind die aktuellen Daten zu den wichtigsten US-Tech-Aktien:
 
     {data_summary}
 
-    Erstelle ein kurzes, knackiges Update für den Trader auf Deutsch:
-    1. Kurze Zusammenfassung der aktuellen Stimmung.
-    2. Auffällige Gewinner/Verlierer.
-    3. Ein kurzer, pragmatischer Fazit-Satz.
-    Halte die Nachricht übersichtlich und ideal nutzbar für eine schnelle Telegram-Nachricht (Nutze Emojis & Markdown-Formatierung).
+    Erstelle eine ausführliche, fundierte und übersichtliche Marktanalyse auf Deutsch für Telegram:
+
+    📌 **1. Gesamtstimmung & Marktlage**
+    Analysiere die Bewegungen im Tech-Sektor auf Basis der vorliegenden Zahlen. Was fällt im Gesamtbild auf?
+
+    📈 **2. Einzelwert-Analyse (Top & Flop)**
+    Gehe gezielt auf die stärksten Gewinner und Verlierer ein und ordne die Prozentbewegungen kurz ein.
+
+    🎯 **3. Pragmatisches Fazit & Ausblick**
+    Gib dem Trader 2-3 konkrete Beobachtungspunkte an die Hand, worauf in den nächsten Handelsstunden / Tagen geachtet werden sollte.
+
+    Formatiere die Nachricht lesefreundlich mit Emojis, Fettgedrucktem und Aufzählungspunkten.
     """
 
     try:
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=500,
+            model="claude-3-5-sonnet-latest",
+            max_tokens=1000,
             messages=[{"role": "user", "content": prompt}]
         )
         ki_analysis = response.content[0].text
         
-        # 4. Gesamte Nachricht zusammenstellen und an Telegram senden
-        full_message = f"🤖 *Warren Buffet KI - Markt-Update*\n\n{ki_analysis}"
+        full_message = f"🤖 *Warren Buffet KI - Ausführliche Analyse*\n\n{ki_analysis}"
         send_telegram_message(full_message)
-        print("✅ Erfolgreich gesendet!")
+        print("✅ KI-Analyse erfolgreich gesendet!")
 
     except Exception as e:
-        print(f"❌ Fehler bei der Anthropic-API: {e}")
-        # Fallback: Sende zumindest die Rohdaten
-        send_telegram_message(f"📊 *Markt-Update (KI-Fehler)*:\n\n{data_summary}")
+        print(f"❌ Exakter Fehler bei der Anthropic-API: {e}")
+        send_telegram_message(f"📊 *Markt-Update (KI-Fehler)*:\n\n{data_summary}\n\n_Hinweis: KI-Schnittstelle hat einen Fehler gemeldet. Prüfe die GitHub-Logs._")
 
 if __name__ == "__main__":
     main()
